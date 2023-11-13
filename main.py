@@ -6,6 +6,7 @@ from PyQt6.QtGui import QAction
 import sys
 from datetime import datetime
 from dbconnection import DBConnection
+from invoice import Invoice
 
 
 class MainWindow(QMainWindow):
@@ -19,6 +20,10 @@ class MainWindow(QMainWindow):
         add_time_action = QAction("Add Time", self)
         add_time_action.triggered.connect(self.insert)
         file_menu_item.addAction(add_time_action)
+
+        invoice_action = QAction("Generate Invoice", self)
+        invoice_action.triggered.connect(self.generateinvoice)
+        file_menu_item.addAction(invoice_action)
 
         self.table = QTableWidget()
         self.table.setColumnCount(4)
@@ -49,6 +54,10 @@ class MainWindow(QMainWindow):
 
     def insert(self):
         dialog = InsertDialog()
+        dialog.exec()
+
+    def generateinvoice(self):
+        dialog = InvoiceDialog()
         dialog.exec()
 
     def cell_clicked(self, row, column):
@@ -265,6 +274,38 @@ class StatusDialog(QDialog):
         confirmation_message.setWindowTitle("Success")
         confirmation_message.setText(f"Your time entry was updated as Invoiced")
         confirmation_message.exec()
+
+class InvoiceDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Create Invoice")
+        self.setFixedWidth(300)
+        self.setFixedHeight(300)
+
+        layout = QVBoxLayout()
+
+        # Get clients and list out
+        self.client = QComboBox()
+        connection = DBConnection().connect()
+        result = connection.execute("select id, client_name from clients")
+        current_client_index = 0
+        for row_number, row_data in enumerate(result):
+            self.client.addItem(row_data[1], row_data[0])
+        layout.addWidget(self.client)
+        self.client.setCurrentIndex(current_client_index)
+
+        button = QPushButton("Create Invoice")
+        button.clicked.connect(self.generate_invoice)
+        layout.addWidget(button)
+
+        self.setLayout(layout)
+
+    def generate_invoice(self):
+        client_id = self.client.currentData()
+
+        invoiceobj = Invoice(client_id=client_id)
+        invoiceobj.generateCurrentInvoice()
+        self.close()
 
 sys._excepthook = sys.excepthook
 def exception_hook(exctype, value, traceback):
